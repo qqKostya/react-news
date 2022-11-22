@@ -109,7 +109,47 @@
         },
       ];
 
+      class Article extends React.Component {
+        state = {
+          visible: false,
+        };
+        handleReadMoreClck = (e) => {
+          e.preventDefault();
+          this.setState({ visible: true });
+        };
+        render() {
+          const { author, text, bigText } = this.props.data;
+          const { visible } = this.state;
+          return (
+            <div className="article">
+              <p className="news__author">{author}:</p>
+              <p className="news__text">{text}</p>
+              {!visible && (
+                <a
+                  onClick={this.handleReadMoreClck}
+                  href="#"
+                  className="news__readmore"
+                >
+                  Подробнее
+                </a>
+              )}
+              {visible && <p className="news__big-text">{bigText}</p>}
+            </div>
+          );
+        }
+      }
+
+      Article.propTypes = {
+        data: PropTypes.shape({
+          id: PropTypes.number.isRequired, // добавили id, это число, обязательно
+          author: PropTypes.string.isRequired,
+          text: PropTypes.string.isRequired,
+          bigText: PropTypes.string.isRequired,
+        }),
+      };
+
       class News extends React.Component {
+        // удалили старое состояние counter: 0 (старый ненужный код)
         renderNews = () => {
           const { data } = this.props;
           let newsTemplate = null;
@@ -130,77 +170,44 @@
           return (
             <div className="news">
               {this.renderNews()}
-              {
-                /* добавили onClick */
-                data.length ? (
-                  <strong className={"news__count"}>
-                    Всего новостей: {data.length}
-                  </strong>
-                ) : null
-              }
+              {data.length ? (
+                <strong className={"news__count"}>
+                  Всего новостей: {data.length}
+                </strong>
+              ) : null}
             </div>
           );
         }
       }
 
       News.propTypes = {
-        data: PropTypes.array.isRequired, // PropTypes (с большой буквы) = библиотека prop-types
-      };
-
-      class Article extends React.Component {
-        state = {
-          visible: false,
-        };
-
-        handleReadMoreClck = (e) => {
-          // добавили метод
-          e.preventDefault();
-          this.setState({ visible: true });
-        };
-
-        render() {
-          const { author, text, bigText } = this.props.data;
-          const { visible } = this.state; // вытащили visible из this.state
-          return (
-            <div className="article">
-              <p className="news__author">{author}:</p>
-              <p className="news__text">{text}</p>
-              {
-                /* если не visible, то показывай */
-                !visible && (
-                  <a
-                    onClick={this.handleReadMoreClck}
-                    href="#"
-                    className="news__readmore"
-                  >
-                    Подробнее
-                  </a>
-                )
-              }
-              {
-                /* если visible, то показывай */
-                visible && <p className="news__big-text">{bigText}</p>
-              }
-            </div>
-          );
-        }
-      }
-
-      Article.propTypes = {
-        data: PropTypes.shape({
-          author: PropTypes.string.isRequired,
-          text: PropTypes.string.isRequired,
-          bigText: PropTypes.string.isRequired,
-        }),
+        data: PropTypes.array.isRequired,
       };
 
       class Add extends React.Component {
         state = {
           name: "",
           text: "",
+          bigText: "", // добавлен bigText
           agree: false,
         };
-
+        onBtnClickHandler = (e) => {
+          e.preventDefault();
+          const { name, text, bigText } = this.state; // вытащили так же и bigText
+          this.props.onAddNews({
+            id: +new Date(), // в id сохраняется количество миллисекунд прошедших с 1 января 1970 года в часовом поясе UTC
+            author: name, // name сохраняем в поле author
+            text,
+            bigText,
+          });
+        };
+        handleChange = (e) => {
+          const { id, value } = e.currentTarget;
+          this.setState({ [id]: e.currentTarget.value });
+        };
+        handleCheckboxChange = (e) => {
+          this.setState({ agree: e.currentTarget.checked });
+        };
         validate = () => {
           const { name, text, agree } = this.state;
           if (name.trim() && text.trim() && agree) {
@@ -208,26 +215,8 @@
           }
           return false;
         };
-
-        onBtnClickHandler = (e) => {
-          e.preventDefault();
-          const { name, text } = this.state;
-          alert(name + "\n" + text); // \n = перенос строки
-        };
-
-        handleChange = (e) => {
-          const { id, value } = e.currentTarget;
-          this.setState({ [id]: e.currentTarget.value });
-        };
-
-        handleCheckboxChange = (e) => {
-          // обработчик кликов по чекбоксу
-          // чтобы установить true/false считываем свойство checked
-          this.setState({ agree: e.currentTarget.checked });
-        };
-
         render() {
-          const { name, text, agree } = this.state;
+          const { name, text, bigText, agree } = this.state;
           return (
             <form className="add">
               <input
@@ -244,6 +233,14 @@
                 className="add__text"
                 placeholder="Текст новости"
                 value={text}
+              ></textarea>
+              {/* добавили bigText */}
+              <textarea
+                id="bigText"
+                onChange={this.handleChange}
+                className="add__text"
+                placeholder="Текст новости подробно"
+                value={bigText}
               ></textarea>
               <label className="add__checkrule">
                 <input type="checkbox" onChange={this.handleCheckboxChange} /> Я
@@ -262,20 +259,28 @@
       }
 
       Add.propTypes = {
-        name: PropTypes.string, // PropTypes (с большой буквы) = библиотека prop-types
-        text: PropTypes.string, // PropTypes (с большой буквы) = библиотека prop-types
-        agree: PropTypes.bool, // PropTypes (с большой буквы) = библиотека prop-types
+        onAddNews: PropTypes.func.isRequired,
       };
 
-      const App = () => {
-        return (
-          <React.Fragment>
-            <Add /> {/* добавили вывод компонента */}
-            <h3>Новости</h3>
-            <News data={myNews} />
-          </React.Fragment>
-        );
-      };
+      class App extends React.Component {
+        state = {
+          news: myNews,
+        };
+        handleAddNews = (data) => {
+          const nextNews = [data, ...this.state.news];
+          this.setState({ news: nextNews });
+        };
+        render() {
+          return (
+            <React.Fragment>
+              <Add onAddNews={this.handleAddNews} />
+              <h3>Новости</h3>
+              <News data={this.state.news} />
+            </React.Fragment>
+          );
+        }
+      }
+
       ReactDOM.render(<App />, document.getElementById("root"));
     </script>
   </body>
